@@ -1,0 +1,53 @@
+version: "3.8"
+
+networks:
+  monitor-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.0.0/24
+
+volumes:
+  log-data:
+    driver: local
+
+services:
+  log-generator:
+    build: ./log-generator
+    container_name: log-generator
+    networks:
+      monitor-network:
+        ipv4_address: 10.0.0.10
+    ports:
+      - "5000:5000"
+    environment:
+      - COLLECTOR_URL=http://log-collector:5001/collect
+    depends_on:
+      - log-collector
+    restart: unless-stopped
+
+  log-collector:
+    build: ./log-collector
+    container_name: log-collector
+    networks:
+      monitor-network:
+        ipv4_address: 10.0.0.20
+    ports:
+      - "5001:5001"
+    volumes:
+      - log-data:/logs
+    environment:
+      - ALERT_URL=http://alert-service:5002/alert
+    depends_on:
+      - alert-service
+    restart: unless-stopped
+
+  alert-service:
+    build: ./alert-service
+    container_name: alert-service
+    networks:
+      monitor-network:
+        ipv4_address: 10.0.0.30
+    ports:
+      - "5002:5002"
+    restart: unless-stopped
